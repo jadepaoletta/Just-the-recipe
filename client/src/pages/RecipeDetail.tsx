@@ -22,6 +22,14 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
+function PenIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+    </svg>
+  );
+}
+
 // ── Edit: Ingredients ────────────────────────────────────────────────────────
 
 interface EditIngredient { amount: string; unit: string; name: string; }
@@ -277,7 +285,16 @@ export function RecipeDetail() {
                 onKeyDown={(e) => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') setEditingTitle(false); }}
               />
             ) : (
-              <h1 className="detail-title">{recipe.title}</h1>
+              <>
+                <h1 className="detail-title">{recipe.title}</h1>
+                <button
+                  className="edit-icon-btn"
+                  onClick={() => { setTitleDraft(recipe.title); setEditingTitle(true); }}
+                  title="Edit title"
+                >
+                  <PenIcon />
+                </button>
+              </>
             )}
           </div>
 
@@ -300,24 +317,9 @@ export function RecipeDetail() {
           )}
 
           <div className="detail-actions">
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => { setTitleDraft(recipe.title); setEditingTitle(true); }}
-            >
-              ✏️ Edit title
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => setEditingIngredients(!editingIngredients)}
-            >
-              ✏️ Edit ingredients
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => setEditingSteps(!editingSteps)}
-            >
-              ✏️ Edit steps
-            </button>
+
+
+
             <div style={{ flex: 1 }} />
             <button className="btn btn-danger btn-sm" onClick={handleDeleteRecipe}>
               🗑 Delete
@@ -329,6 +331,15 @@ export function RecipeDetail() {
         <div className="detail-section">
           <div className="detail-section-title">
             Ingredients
+            {!editingIngredients && (
+              <button
+                className="edit-icon-btn"
+                onClick={() => setEditingIngredients(true)}
+                title="Edit ingredients"
+              >
+                <PenIcon />
+              </button>
+            )}
             {hasMetric && !editingIngredients && (
               <div className="unit-toggle">
                 <button
@@ -372,7 +383,18 @@ export function RecipeDetail() {
 
         {/* Steps */}
         <div className="detail-section">
-          <div className="detail-section-title">Instructions</div>
+          <div className="detail-section-title">
+            Instructions
+            {!editingSteps && (
+              <button
+                className="edit-icon-btn"
+                onClick={() => setEditingSteps(true)}
+                title="Edit instructions"
+              >
+                <PenIcon />
+              </button>
+            )}
+          </div>
 
           {editingSteps ? (
             <StepsEditor

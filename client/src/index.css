@@ -539,6 +539,27 @@ textarea {
     left bottom / 100% 1px no-repeat;
 }
 
+/* Inline edit icon button */
+.edit-icon-btn {
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: var(--border-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color .15s, background .15s;
+  flex-shrink: 0;
+  margin-left: 2px;
+  cursor: pointer;
+}
+
+.edit-icon-btn:hover {
+  color: var(--accent);
+  background: var(--accent-light);
+}
+
 /* Unit toggle */
 .unit-toggle {
   display: inline-flex;
