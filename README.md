@@ -1,6 +1,8 @@
 # Recipe Manager
 
-A local recipe manager that scrapes, stores, and lets you manage recipes from any blog URL.
+A recipe manager that scrapes, stores, and lets you manage recipes from any blog URL.
+
+**Live site:** https://just-the-recipe.onrender.com/
 
 ## Stack
 
