@@ -16,6 +16,7 @@ function formatDate(iso: string): string {
 export function RecipeList() {
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
   const [search, setSearch] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -29,9 +30,21 @@ export function RecipeList() {
     navigate(`/recipes/${recipe.id}`);
   }
 
-  const filtered = recipes.filter((r) =>
-    r.title.toLowerCase().includes(search.toLowerCase())
-  );
+  const allTags = Array.from(
+    new Map(recipes.flatMap((r) => r.tags).map((t) => [t.name, t])).values()
+  ).sort((a, b) => a.name.localeCompare(b.name));
+
+  function toggleTag(name: string) {
+    setSelectedTags((prev) =>
+      prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]
+    );
+  }
+
+  const filtered = recipes.filter((r) => {
+    if (!r.title.toLowerCase().includes(search.toLowerCase())) return false;
+    if (selectedTags.length === 0) return true;
+    return selectedTags.every((tag) => r.tags.some((t) => t.name === tag));
+  });
 
   return (
     <div className="list-page">
@@ -52,6 +65,25 @@ export function RecipeList() {
           + Import Recipe
         </button>
       </div>
+
+      {allTags.length > 0 && (
+        <div className="tag-filter-row">
+          {allTags.map((tag) => (
+            <button
+              key={tag.id}
+              className={`tag-filter-pill${selectedTags.includes(tag.name) ? ' active' : ''}`}
+              onClick={() => toggleTag(tag.name)}
+            >
+              {tag.name}
+            </button>
+          ))}
+          {selectedTags.length > 0 && (
+            <button className="tag-filter-clear" onClick={() => setSelectedTags([])}>
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="page-loading">
@@ -92,6 +124,13 @@ export function RecipeList() {
               </div>
               <div className="card-body">
                 <div className="card-title">{recipe.title}</div>
+                {recipe.tags.length > 0 && (
+                  <div className="card-tags">
+                    {recipe.tags.map((t) => (
+                      <span key={t.id} className="tag-pill tag-pill-sm">{t.name}</span>
+                    ))}
+                  </div>
+                )}
                 <div className="card-meta">
                   {sourceDomain(recipe.source_url) && (
                     <span className="card-source" title={recipe.source_url ?? ''}>

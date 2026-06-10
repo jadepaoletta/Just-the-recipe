@@ -21,7 +21,10 @@ function getFullRecipe(id: number, userId: number) {
   const ingredients = db.prepare('SELECT * FROM ingredients WHERE recipe_id = ? ORDER BY order_index').all(id);
   const steps = db.prepare('SELECT * FROM steps WHERE recipe_id = ? ORDER BY order_index').all(id);
   const images = db.prepare('SELECT * FROM images WHERE recipe_id = ? ORDER BY is_primary DESC, id ASC').all(id);
-  return { ...recipe, ingredients, steps, images };
+  const tags = db.prepare(
+    'SELECT t.id, t.name FROM tags t JOIN recipe_tags rt ON rt.tag_id = t.id WHERE rt.recipe_id = ? ORDER BY t.name'
+  ).all(id);
+  return { ...recipe, ingredients, steps, images, tags };
 }
 
 function ownsRecipe(id: number, userId: number): boolean {
@@ -46,8 +49,30 @@ router.get('/', (req: Request, res: Response) => {
     LEFT JOIN images i ON i.recipe_id = r.id AND i.is_primary = 1
     WHERE r.user_id = ?
     ORDER BY r.created_at DESC
-  `).all(req.user!.id);
-  res.json(recipes);
+  `).all(req.user!.id) as Array<Record<string, unknown>>;
+
+  const recipeTags = db.prepare(`
+    SELECT rt.recipe_id, t.id, t.name
+    FROM recipe_tags rt
+    JOIN tags t ON t.id = rt.tag_id
+    JOIN recipes r ON r.id = rt.recipe_id
+    WHERE r.user_id = ?
+    ORDER BY t.name
+  `).all(req.user!.id) as Array<{ recipe_id: number; id: number; name: string }>;
+
+  const tagsByRecipe = new Map<number, { id: number; name: string }[]>();
+  for (const rt of recipeTags) {
+    if (!tagsByRecipe.has(rt.recipe_id)) tagsByRecipe.set(rt.recipe_id, []);
+    tagsByRecipe.get(rt.recipe_id)!.push({ id: rt.id, name: rt.name });
+  }
+
+  res.json(recipes.map((r) => ({ ...r, tags: tagsByRecipe.get(r.id as number) ?? [] })));
+});
+
+// GET /api/recipes/tags — list all tags for current user
+router.get('/tags', (req: Request, res: Response) => {
+  const tags = db.prepare('SELECT id, name FROM tags WHERE user_id = ? ORDER BY name').all(req.user!.id);
+  res.json(tags);
 });
 
 // GET /api/recipes/:id — single recipe (must belong to current user)
@@ -286,6 +311,30 @@ router.post('/:id/images', (req: Request, res: Response) => {
     ).run(id, localPath, isPrimary.c === 0 ? 1 : 0);
     res.status(201).json(db.prepare('SELECT * FROM images WHERE id = ?').get(row.lastInsertRowid));
   });
+});
+
+// PUT /api/recipes/:id/tags — replace tags for a recipe
+router.put('/:id/tags', (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (!ownsRecipe(id, req.user!.id)) return res.status(404).json({ error: 'Recipe not found' });
+  const { tags } = req.body as { tags: string[] };
+  if (!Array.isArray(tags)) return res.status(400).json({ error: 'tags must be an array' });
+
+  db.prepare('DELETE FROM recipe_tags WHERE recipe_id = ?').run(id);
+
+  const upsertTag = db.prepare('INSERT OR IGNORE INTO tags (user_id, name) VALUES (?, ?)');
+  const getTag = db.prepare('SELECT id FROM tags WHERE user_id = ? AND name = ?');
+  const linkTag = db.prepare('INSERT OR IGNORE INTO recipe_tags (recipe_id, tag_id) VALUES (?, ?)');
+
+  for (const tagName of tags) {
+    const trimmed = tagName.trim();
+    if (!trimmed) continue;
+    upsertTag.run(req.user!.id, trimmed);
+    const tag = getTag.get(req.user!.id, trimmed) as { id: number };
+    linkTag.run(id, tag.id);
+  }
+
+  res.json(getFullRecipe(id, req.user!.id));
 });
 
 // DELETE /api/recipes/:id/images/:imageId

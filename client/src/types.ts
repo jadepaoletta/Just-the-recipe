@@ -1,3 +1,8 @@
+export interface Tag {
+  id: number;
+  name: string;
+}
+
 export interface Ingredient {
   id: number;
   recipe_id: number;
@@ -37,6 +42,7 @@ export interface Recipe {
   ingredients: Ingredient[];
   steps: Step[];
   images: RecipeImage[];
+  tags: Tag[];
 }
 
 export interface RecipeListItem {
@@ -46,6 +52,7 @@ export interface RecipeListItem {
   description: string | null;
   created_at: string;
   primary_image: string | null;
+  tags: Tag[];
 }
 
 export interface User {

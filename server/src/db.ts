@@ -54,6 +54,21 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_recipes_user ON recipes(user_id);
 
+  CREATE TABLE IF NOT EXISTS tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    UNIQUE(user_id, name)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_tags_user ON tags(user_id);
+
+  CREATE TABLE IF NOT EXISTS recipe_tags (
+    recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (recipe_id, tag_id)
+  );
+
   CREATE TABLE IF NOT EXISTS ingredients (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,

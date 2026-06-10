@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api';
-import type { Recipe, Ingredient, Step, RecipeImage } from '../types';
+import type { Recipe, Ingredient, Step, RecipeImage, Tag } from '../types';
 
 type UnitMode = 'us' | 'metric';
 
@@ -148,6 +148,107 @@ function StepsEditor({
   );
 }
 
+// ── Tag editor ───────────────────────────────────────────────────────────────
+
+function TagEditor({
+  recipeId,
+  recipeTags,
+  allTags,
+  onSaved,
+}: {
+  recipeId: number;
+  recipeTags: Tag[];
+  allTags: Tag[];
+  onSaved: (tags: Tag[]) => void;
+}) {
+  const [names, setNames] = useState<string[]>(recipeTags.map((t) => t.name));
+  const [input, setInput] = useState('');
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setNames(recipeTags.map((t) => t.name));
+  }, [recipeTags]);
+
+  async function save(newNames: string[]) {
+    try {
+      const updated = await api.updateTags(recipeId, newNames);
+      onSaved(updated.tags);
+    } catch { /* ignore */ }
+  }
+
+  function addTag(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (names.some((n) => n.toLowerCase() === trimmed.toLowerCase())) {
+      setInput('');
+      setOpen(false);
+      return;
+    }
+    const newNames = [...names, trimmed];
+    setNames(newNames);
+    save(newNames);
+    setInput('');
+    setOpen(false);
+  }
+
+  function removeTag(name: string) {
+    const newNames = names.filter((n) => n !== name);
+    setNames(newNames);
+    save(newNames);
+  }
+
+  const suggestions = allTags.filter(
+    (t) =>
+      t.name.toLowerCase().includes(input.toLowerCase()) &&
+      !names.some((n) => n.toLowerCase() === t.name.toLowerCase())
+  );
+
+  const showCreate =
+    input.trim().length > 0 &&
+    !suggestions.some((s) => s.name.toLowerCase() === input.trim().toLowerCase()) &&
+    !names.some((n) => n.toLowerCase() === input.trim().toLowerCase());
+
+  return (
+    <div className="tag-editor">
+      {names.map((name) => (
+        <span key={name} className="tag-pill">
+          {name}
+          <button type="button" className="tag-pill-remove" onClick={() => removeTag(name)}>✕</button>
+        </span>
+      ))}
+      <div className="tag-input-wrap">
+        <input
+          className="tag-input"
+          type="text"
+          value={input}
+          placeholder={names.length === 0 ? 'Add a tag…' : 'Add another…'}
+          onChange={(e) => { setInput(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); addTag(input); }
+            if (e.key === 'Escape') { setInput(''); setOpen(false); }
+          }}
+        />
+        {open && (suggestions.length > 0 || showCreate) && (
+          <div className="tag-suggestions">
+            {suggestions.map((s) => (
+              <div key={s.id} className="tag-suggestion" onMouseDown={() => addTag(s.name)}>
+                {s.name}
+              </div>
+            ))}
+            {showCreate && (
+              <div className="tag-suggestion tag-suggestion-create" onMouseDown={() => addTag(input)}>
+                Create "{input.trim()}"
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main detail page ─────────────────────────────────────────────────────────
 
 export function RecipeDetail() {
@@ -156,6 +257,7 @@ export function RecipeDetail() {
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(true);
   const [unitMode, setUnitMode] = useState<UnitMode>('us');
+  const [allTags, setAllTags] = useState<Tag[]>([]);
 
   // Edit state
   const [editingTitle, setEditingTitle] = useState(false);
@@ -169,9 +271,15 @@ export function RecipeDetail() {
 
   useEffect(() => {
     if (!id) return;
-    api.get(parseInt(id, 10))
-      .then((r) => { setRecipe(r); setNotes(r.notes ?? ''); setLoading(false); })
-      .catch(() => { setLoading(false); });
+    Promise.all([
+      api.get(parseInt(id, 10)),
+      api.listTags(),
+    ]).then(([r, tags]) => {
+      setRecipe(r);
+      setNotes(r.notes ?? '');
+      setAllTags(tags);
+      setLoading(false);
+    }).catch(() => { setLoading(false); });
   }, [id]);
 
   // Auto-save notes on blur / after typing stops
@@ -316,10 +424,23 @@ export function RecipeDetail() {
             </div>
           )}
 
+          <TagEditor
+            recipeId={recipe.id}
+            recipeTags={recipe.tags}
+            allTags={allTags}
+            onSaved={(tags) => {
+              setRecipe((r) => r ? { ...r, tags } : r);
+              setAllTags((prev) => {
+                const merged = [...prev];
+                for (const t of tags) {
+                  if (!merged.some((m) => m.id === t.id)) merged.push(t);
+                }
+                return merged.sort((a, b) => a.name.localeCompare(b.name));
+              });
+            }}
+          />
+
           <div className="detail-actions">
-
-
-
             <div style={{ flex: 1 }} />
             <button className="btn btn-danger btn-sm" onClick={handleDeleteRecipe}>
               🗑 Delete

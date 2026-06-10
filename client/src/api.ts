@@ -1,4 +1,4 @@
-import type { Recipe, RecipeListItem, User } from './types';
+import type { Recipe, RecipeListItem, Tag, User } from './types';
 
 const BASE = '/api/recipes';
 const AUTH = '/api/auth';
@@ -63,6 +63,14 @@ export const api = {
   delete(id: number): Promise<{ ok: boolean }> {
     return fetch(`${BASE}/${id}`, { method: 'DELETE', credentials: 'include' })
       .then((r) => handleResponse<{ ok: boolean }>(r));
+  },
+
+  listTags(): Promise<Tag[]> {
+    return fetch(`${BASE}/tags`, opts).then((r) => handleResponse<Tag[]>(r));
+  },
+
+  updateTags(id: number, tags: string[]): Promise<Recipe> {
+    return fetch(`${BASE}/${id}/tags`, jsonOpts('PUT', { tags })).then((r) => handleResponse<Recipe>(r));
   },
 };
 
