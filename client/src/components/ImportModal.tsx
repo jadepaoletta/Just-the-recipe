@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { api } from '../api';
-import type { Recipe } from '../types';
+import type { Recipe, Tag } from '../types';
 
 type Mode = 'scrape' | 'ai';
 
@@ -14,11 +14,42 @@ export function ImportModal({ onClose, onImported }: Props) {
   const [mode, setMode] = useState<Mode>('scrape');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [tagNames, setTagNames] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+  const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
+    api.listTags().then(setAllTags).catch(() => {});
   }, []);
+
+  function addTag(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed || tagNames.some((n) => n.toLowerCase() === trimmed.toLowerCase())) {
+      setTagInput('');
+      setTagDropdownOpen(false);
+      return;
+    }
+    setTagNames((prev) => [...prev, trimmed]);
+    setTagInput('');
+    setTagDropdownOpen(false);
+  }
+
+  function removeTag(name: string) {
+    setTagNames((prev) => prev.filter((n) => n !== name));
+  }
+
+  const tagSuggestions = allTags.filter(
+    (t) =>
+      t.name.toLowerCase().includes(tagInput.toLowerCase()) &&
+      !tagNames.some((n) => n.toLowerCase() === t.name.toLowerCase())
+  );
+  const showCreate =
+    tagInput.trim().length > 0 &&
+    !tagSuggestions.some((s) => s.name.toLowerCase() === tagInput.trim().toLowerCase()) &&
+    !tagNames.some((n) => n.toLowerCase() === tagInput.trim().toLowerCase());
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,7 +59,10 @@ export function ImportModal({ onClose, onImported }: Props) {
     setLoading(true);
     setError('');
     try {
-      const recipe = mode === 'ai' ? await api.importAI(trimmed) : await api.import(trimmed);
+      let recipe = mode === 'ai' ? await api.importAI(trimmed) : await api.import(trimmed);
+      if (tagNames.length > 0) {
+        recipe = await api.updateTags(recipe.id, tagNames);
+      }
       onImported(recipe);
     } catch (err) {
       setError((err as Error).message);
@@ -82,6 +116,47 @@ export function ImportModal({ onClose, onImported }: Props) {
             onChange={(e) => setUrl(e.target.value)}
             disabled={loading}
           />
+          <div className="modal-tag-section">
+            <div className="modal-tag-input-row">
+              {tagNames.map((name) => (
+                <span key={name} className="tag-pill">
+                  {name}
+                  <button type="button" className="tag-pill-remove" onClick={() => removeTag(name)}>✕</button>
+                </span>
+              ))}
+              <div className="tag-input-wrap">
+                <input
+                  className="tag-input"
+                  type="text"
+                  value={tagInput}
+                  placeholder={tagNames.length === 0 ? 'Add tags…' : 'Add another…'}
+                  disabled={loading}
+                  onChange={(e) => { setTagInput(e.target.value); setTagDropdownOpen(true); }}
+                  onFocus={() => setTagDropdownOpen(true)}
+                  onBlur={() => setTimeout(() => setTagDropdownOpen(false), 150)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); addTag(tagInput); }
+                    if (e.key === 'Escape') { setTagInput(''); setTagDropdownOpen(false); }
+                  }}
+                />
+                {tagDropdownOpen && (tagSuggestions.length > 0 || showCreate) && (
+                  <div className="tag-suggestions">
+                    {tagSuggestions.map((s) => (
+                      <div key={s.id} className="tag-suggestion" onMouseDown={() => addTag(s.name)}>
+                        {s.name}
+                      </div>
+                    ))}
+                    {showCreate && (
+                      <div className="tag-suggestion tag-suggestion-create" onMouseDown={() => addTag(tagInput)}>
+                        Create "{tagInput.trim()}"
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           {error && <div className="modal-error">{error}</div>}
           <div className="modal-actions">
             <button type="button" className="btn btn-secondary" onClick={onClose} disabled={loading}>

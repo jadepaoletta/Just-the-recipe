@@ -1420,6 +1420,30 @@ textarea {
   border-top: 1px solid var(--border);
 }
 
+/* Tag section inside import modal */
+
+.modal-tag-section {
+  margin-bottom: 14px;
+}
+
+.modal-tag-input-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface2);
+  min-height: 44px;
+  transition: border-color .18s;
+}
+
+.modal-tag-input-row:focus-within {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
 /* Tag filter row on the list page */
 
 .tag-filter-row {
